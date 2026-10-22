@@ -209,7 +209,7 @@ table.data td:first-child,table.data th:first-child{text-align:left}
   <h3>Data and method</h3>
   <p><strong>Places:</strong> OpenStreetMap, every amenity=restaurant, cafe, bar and pub in Greece, downloaded through Overpass on 21 October 2026. OpenStreetMap has no tag for a taverna or a kafeneio, so I sorted places by their names and tags: "ουζερί", "τσιπουράδικο", "μεζεδοπωλείο" or "ρακάδικο" for ouzeri; "καφενείο" for kafeneia; "ταβέρνα", or a restaurant with Greek, local or fish cuisine, for tavernas. Many kafeneia are mapped simply as cafés, so they are undercounted. © OpenStreetMap contributors, ODbL.</p>
   <p><strong>Official counts:</strong> ELSTAT, <a href="https://www.statistics.gr/en/statistics/-/publication/SBR01/-">Statistical Business Register</a>, 2011–2023 (legal units by four-digit activity, and by regional unit from 2016), and estimated population on 1 January 2025. Areas are NUTS 3 regions (Eurostat, via Nuts2json), with Attica as one area.</p>
-  <p><strong>Basemap:</strong> Esri World Dark Gray Canvas (© Esri, HERE, Garmin, © OpenStreetMap contributors).</p>
+  <p><strong>Projection:</strong> the opening map is drawn in ΕΓΣΑ87 / Greek Grid (EPSG:2100); the explore map uses Web Mercator, like all web maps. <strong>Basemap:</strong> Esri World Dark Gray Canvas (© Esri, HERE, Garmin, © OpenStreetMap contributors).</p>
   <p>Made by Eriola Trungu Impersimi · <a href="https://etymo.co.uk">etymo.co.uk</a> · See also <a href="https://etymo.co.uk/uk-pubs/">Last orders? The UK drawn with its pubs</a>. If you enjoyed it, you can <a href="https://buymeacoffee.com/etymo">buy me a coffee</a>. @ET</p>
 </footer>
 
@@ -218,6 +218,7 @@ table.data td:first-child,table.data th:first-child{text-align:left}
 <script src="data/facts.js"></script>
 <script src="data/units.js"></script>
 <script src="data/points.js"></script>
+<script src="data/hero.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 (function(){
@@ -236,25 +237,28 @@ for (let i = 0; i < N; i++){ LAT[i] = P.lat[i] / 1e5; LON[i] = P.lon[i] / 1e5; }
 const KC = ['--tav', '--ouz', '--kaf', '--other', '--other', '--other'].map(css);
 const K = F.kinds;
 
-/* hero */
+/* hero: drawn in ΕΓΣΑ87 / Greek Grid (EPSG:2100) */
 function drawHero(){
-  const c = document.getElementById('heroCanvas'), r = c.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2);
+  const H = D.hero, c = document.getElementById('heroCanvas'), r = c.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2);
   c.width = r.width * dpr; c.height = r.height * dpr;
   const g = c.getContext('2d'); g.scale(dpr, dpr);
   g.fillStyle = css('--bg'); g.fillRect(0, 0, r.width, r.height);
-  const k = Math.cos(38.4 * Math.PI / 180), x0 = 19.3 * k, x1 = 29.7 * k, y0 = 34.75, y1 = 41.8;
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+  H.outline.forEach(ring => ring.forEach(([x, y]) => { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }));
   const narrow = r.width < 700;
-  const availW = narrow ? r.width * 0.98 : Math.min(r.width * 0.52, 640), availH = r.height * (narrow ? 0.6 : 0.92);
+  const availW = narrow ? r.width * 0.96 : Math.min(r.width * 0.55, 660), availH = r.height * (narrow ? 0.6 : 0.9);
   const s = Math.min(availW / (x1 - x0), availH / (y1 - y0));
   const ox = narrow ? (r.width - (x1 - x0) * s) / 2 : r.width - (x1 - x0) * s - Math.max(16, (r.width - 1100) / 2) - 10;
   const oy = narrow ? r.height - (y1 - y0) * s - 10 : (r.height - (y1 - y0) * s) / 2;
-  const rad = Math.max(0.9, s / 170);
+  const px = x => ox + (x - x0) * s, py = y => oy + (y1 - y) * s;
+  g.strokeStyle = 'rgba(241,236,226,0.16)'; g.fillStyle = 'rgba(241,236,226,0.025)'; g.lineWidth = 0.8;
+  H.outline.forEach(ring => { g.beginPath(); ring.forEach(([x, y], i) => i ? g.lineTo(px(x), py(y)) : g.moveTo(px(x), py(y))); g.closePath(); g.fill(); g.stroke(); });
+  const rad = Math.max(0.9, s * 170);
   g.globalCompositeOperation = 'lighter';
   for (let i = 0; i < N; i++){
     const kk = P.k[i];
-    g.fillStyle = kk === 0 ? 'rgba(244,181,68,0.85)' : kk === 1 ? 'rgba(212,80,122,0.85)' : kk === 2 ? 'rgba(63,143,217,0.95)' : 'rgba(170,170,185,0.32)';
-    const x = ox + (LON[i] * k - x0) * s, y = oy + (y1 - LAT[i]) * s;
-    g.beginPath(); g.arc(x, y, kk <= 2 ? rad : rad * 0.8, 0, 6.283); g.fill();
+    g.fillStyle = kk === 0 ? 'rgba(244,181,68,0.85)' : kk === 1 ? 'rgba(212,80,122,0.95)' : kk === 2 ? 'rgba(63,143,217,1)' : 'rgba(170,170,185,0.3)';
+    g.beginPath(); g.arc(px(H.x[i]), py(H.y[i]), kk <= 2 ? rad : rad * 0.8, 0, 6.283); g.fill();
   }
   g.globalCompositeOperation = 'source-over';
 }

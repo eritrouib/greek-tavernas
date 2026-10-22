@@ -13,6 +13,16 @@ d = pd.read_csv(os.path.join(PROC, "osm_places_units.csv"), dtype=str).fillna(""
 K = {"taverna": 0, "ouzeri": 1, "kafeneio": 2, "restaurant": 3, "cafe": 4, "bar": 5}
 d["k"] = d.kind.map(K)
 d = d.sort_values("k", ascending=False)   # tavernas drawn last, on top
+# hero map in ΕΓΣΑ87 / Greek Grid (EPSG:2100), 10 m precision, plus a faint outline of Greece
+from pyproj import Transformer
+tr = Transformer.from_crs(4326, 2100, always_xy=True)
+hx, hy = tr.transform(d.lon.astype(float).to_numpy(), d.lat.astype(float).to_numpy())
+land = gpd.read_file(os.path.join(PROC, "units.geojson")).to_crs(2100).union_all().simplify(400)
+rings = []
+for poly in getattr(land, "geoms", [land]):
+    if poly.area < 4e6: continue
+    rings.append([[int(round(x / 10)), int(round(y / 10))] for x, y in poly.exterior.coords])
+w("hero", {"x": (hx / 10).round().astype(int).tolist(), "y": (hy / 10).round().astype(int).tolist(), "outline": rings})
 w("points", {"lat": (d.lat.astype(float) * 1e5).round().astype(int).tolist(), "lon": (d.lon.astype(float) * 1e5).round().astype(int).tolist(),
              "k": d.k.astype(int).tolist(), "n": d.name.tolist(), "c": d.city.tolist()})
 
